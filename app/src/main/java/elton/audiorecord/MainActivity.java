@@ -8,10 +8,19 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+
+import com.Hound.HoundJSON.ConversationStateJSON;
+import com.Hound.HoundJSON.HoundPartialTranscriptJSON;
+import com.Hound.HoundJSON.HoundServerJSON;
+import com.Hound.HoundJSON.RequestInfoJSON;
+
+import com.Hound.HoundRequester.*;
+import com.Hound.SampleHoundDriver.*;
 
 
 public class MainActivity extends Activity {
@@ -22,16 +31,25 @@ public class MainActivity extends Activity {
     int blockSize = 256;
     boolean isRecording = false;
     private Thread recordingThread = null;
+    private TextView textView;
+    private HoundCloudRequester requester;
+    private HoundRequester.PartialHandler partialHandler;
+    private HoundRequester.VoiceRequest request;
+    private HoundServerJSON result;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        String client_id = "kOcKxPPh-SXYEqeLdGq3RQ==";
+        String client_key = "0qvu3p6bv8SOZtgZJUwo5Nc6RJ0SLJzXxV4QdnWJ65VEyu7C9mIfZwW_r-7hgJgJPvGL6sZ_3UyHtSzBWvrztQ==";
+        String user_id = "eltontian2@gmail.com";
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Button start = (Button) findViewById(R.id.btnStart);
         start.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                baslat(v);
+                baslat();
             }
         });
 
@@ -39,12 +57,29 @@ public class MainActivity extends Activity {
         stop.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                durdur(v);
+                durdur();
             }
         });
+
+        textView = (TextView) findViewById(R.id.text);
+
+        requester = new HoundCloudRequester(client_id,
+                client_key, user_id);
+        partialHandler = new HoundRequester.PartialHandler(){
+            public void handle(HoundPartialTranscriptJSON partial) {
+                if (partial.hasSafeToStopAudio()) {
+                    if (partial.getSafeToStopAudio()) {
+                        durdur();
+                    }
+                }
+
+                Log.v("partial",partial.getPartialTranscript());
+                textView.setText("partial\n" + partial.getPartialTranscript());
+            }
+        };
     }
 
-    public void baslat(View v) {
+    public void baslat() {
         // when click to START
         buffsize = AudioRecord.getMinBufferSize(44100, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
         ar = new AudioRecord(MediaRecorder.AudioSource.MIC, 44100, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, buffsize);
@@ -58,12 +93,35 @@ public class MainActivity extends Activity {
             }
         }, "AudioRecorder Thread");
         recordingThread.start();
+
+        ConversationStateJSON conversation_state = new ConversationStateJSON();
+        RequestInfoJSON request_info = new RequestInfoJSON();
+        try {
+            request = requester.start_voice_request(conversation_state,
+                    request_info, partialHandler);
+        } catch(Exception e) {
+            Log.e("start_voice_request","Exception");
+            this.finish();
+            System.exit(0);
+        }
+
     }
 
-    public void durdur(View v) {
+    public void durdur() {
         // When click to STOP
         ar.stop();
         isRecording = false;
+        try {
+            result = request.finish();
+            String response = result.getAllResults().firstElement().getWrittenResponse();
+            String transcription = result.getDisambiguation().getChoiceData().get(0).getTranscription();
+            String fixedTranscription = result.getDisambiguation().getChoiceData().get(0).getFixedTranscription();
+            textView.setText("Written response:\n" + response);
+        } catch(Exception e) {
+            Log.e("finish", result.getErrorMessage());
+            this.finish();
+            System.exit(0);
+        }
     }
 
     private void writeAudioDataToFile() {
@@ -72,32 +130,26 @@ public class MainActivity extends Activity {
         String filePath = "/sdcard/voice8K16bitmono.wav";
         short sData[] = new short[buffsize / 2];
 
-        FileOutputStream os = null;
-        try {
-            os = new FileOutputStream(filePath);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
 
         while (isRecording) {
             // gets the voice output from microphone to byte format
 
             ar.read(sData, 0, buffsize / 2);
-            Log.d("eray", "Short wirting to file" + sData.toString());
+            Log.d("eray", "Short writing to file" + sData.toString());
+            // // writes the data to file from buffer
+            // // stores the voice buffer
+            byte bData[] = short2byte(sData);
             try {
-                // // writes the data to file from buffer
-                // // stores the voice buffer
-                byte bData[] = short2byte(sData);
-                os.write(bData, 0, buffsize);
-            } catch (IOException e) {
+                request.add_audio(buffsize, bData);
+            } catch (Exception e) {
                 e.printStackTrace();
             }
+            try {
+                //sending the actual Thread of execution to sleep X milliseconds
+                Thread.sleep(100);
+            } catch(InterruptedException ie) {}
         }
-        try {
-            os.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        durdur();
     }
 
     private byte[] short2byte(short[] sData) {
