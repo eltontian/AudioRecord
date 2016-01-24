@@ -10,17 +10,12 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-
 import com.Hound.HoundJSON.ConversationStateJSON;
 import com.Hound.HoundJSON.HoundPartialTranscriptJSON;
 import com.Hound.HoundJSON.HoundServerJSON;
 import com.Hound.HoundJSON.RequestInfoJSON;
-
-import com.Hound.HoundRequester.*;
-import com.Hound.SampleHoundDriver.*;
+import com.Hound.HoundRequester.HoundCloudRequester;
+import com.Hound.HoundRequester.HoundRequester;
 
 
 public class MainActivity extends Activity {
@@ -104,7 +99,6 @@ public class MainActivity extends Activity {
             this.finish();
             System.exit(0);
         }
-
     }
 
     public void durdur() {
