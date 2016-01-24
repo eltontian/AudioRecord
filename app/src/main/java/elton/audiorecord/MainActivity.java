@@ -127,7 +127,6 @@ public class MainActivity extends Activity {
     private void writeAudioDataToFile() {
         // Write the output audio in byte
 
-        String filePath = "/sdcard/voice8K16bitmono.wav";
         short sData[] = new short[buffsize / 2];
 
 
