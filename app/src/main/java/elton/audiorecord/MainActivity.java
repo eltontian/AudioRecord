@@ -95,7 +95,7 @@ public class MainActivity extends Activity {
             request = requester.start_voice_request(conversation_state,
                     request_info, partialHandler);
         } catch(Exception e) {
-            Log.e("start_voice_request","Exception");
+            Log.e("start_voice_request",e.getMessage());
             this.finish();
             System.exit(0);
         }
